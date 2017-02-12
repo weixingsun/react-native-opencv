@@ -1,6 +1,6 @@
-[WIP] React-native-opencv (IOS only)
+React-native-opencv (IOS)
 
-In Development
-
-to try copy the folder to node_modules and from root of your project  
-`rnpm link`
+copy this folder to node_modules and
+download opencv framework from https://github.com/opencv/opencv/archive/3.2.0.zip
+drop zip into ios/OpenCV folder, unzip
+'rnpm link' for your project
