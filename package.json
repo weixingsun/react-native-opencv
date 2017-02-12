@@ -1,0 +1,25 @@
+{
+    "name": "react-native-opencv",
+    "version": "0.0.1",
+    "description": "OpenCV wrapper for React Native (Android & iOS)",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:weixingsun/react-native-opencv.git"
+    },
+    "author": "Weixing Sun <weixing.sun@gmail.com>",
+    "license": "MIT",
+    "keywords": [
+         "react-native",
+         "opencv",
+         "image recognize"
+    ],
+    "rnpm": {
+        "ios": {
+            "project": "ios/RNOpenCV.xcodeproj"
+        }
+    }
+}
