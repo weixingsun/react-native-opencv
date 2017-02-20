@@ -104,6 +104,21 @@ RCT_EXPORT_METHOD(cardImage:(NSString *)pathIn
         return reject(@"error", errmsg, nil);
     }
 }
+RCT_EXPORT_METHOD(resizeImage:(NSString *)pathIn
+                  output:(NSString *)pathOut
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject){
+    NSData *data = [NSData dataWithContentsOfFile:pathIn];
+    UIImage *imgIn = [[UIImage alloc] initWithData:data];
+    UIImage *imgOut = [OpenCVUtil resizeImage:imgIn];
+    if([OpenCVUtil saveImage:imgOut path:pathOut]){
+        NSLog(@"OpenCV.resizeImage %@",pathOut);
+        return resolve(pathOut);
+    }else{
+        NSString *errmsg = [NSString stringWithFormat:@"failed to write file"];
+        return reject(@"error", errmsg, nil);
+    }
+}
 - (CGRect)convertRectFromRect:(CGRect)fromRect toSize:(CGSize)size{
     
     return CGRectMake(size.width*fromRect.origin.x, size.height*fromRect.origin.y,size.width*fromRect.size.width, size.height*fromRect.size.height);

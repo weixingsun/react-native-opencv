@@ -250,7 +250,7 @@
 					"$(PROJECT_DIR)/OpenCV",
 				);
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../../React/**",
+					"$(SRCROOT)/../../../react-native/React/**",
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 				);

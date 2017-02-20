@@ -38,7 +38,51 @@ NSString *TRAINING_DATA = @"haarcascade_frontalface_alt";
     }
     return nil;
 }
-
++ (UIImage *)cropImage: (UIImage *)image {
+    cv::Mat cvImage;
+    UIImageToMat(image, cvImage);
+    if (!cvImage.empty()) {
+        cv::Mat dst;
+        //cv::cvtColor(cvImage, gray, CV_RGB2GRAY);
+        //cv::GaussianBlur(gray, gray, cv::Size(5, 5), 1.2, 1.2);
+        cv::resize(cvImage, dst, cv::Size(28,28));
+        return MatToUIImage(dst);
+    }
+    return nil;
+}
+/*
++ (UIImage *)resizeImage: (UIImage *)image {
+    cv::Mat cvImage;
+    UIImageToMat(image, cvImage);
+    if (!cvImage.empty()) {
+        cv::Mat gray;
+        cv::cvtColor(cvImage, gray, CV_RGB2GRAY);
+        cv::GaussianBlur(gray, gray, cv::Size(5, 5), 1.2, 1.2);
+        cv::Mat cropped = cv::Mat(gray,cv::Rect( ));
+        return MatToUIImage(cropped);
+    }
+    return nil;
+}
+*/
++ (UIImage *)resizeImage: (UIImage *)image {
+    cv::Mat step1,step2,step3;
+    UIImageToMat(image, step1);
+    if (!step1.empty()) {
+        cv::resize(step1, step2, cv::Size(224, 224));
+        //cv::cvtColor(step2, step3, cv::COLOR_BGRA2BGR);
+        return MatToUIImage(step2);
+    }
+    return nil;
+}
++ (bool) saveImage: (UIImage *)image path:(NSString *)path {
+    NSString *suffix = [[path pathExtension] lowercaseString];
+    if([suffix isEqualToString: @"png"]) {
+        return [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
+    }else if([suffix isEqualToString: @"jpg"] || [suffix isEqualToString: @"jpeg"]) {
+        return [UIImageJPEGRepresentation(image, 1.0) writeToFile:path atomically:YES];
+    }
+    return false;
+}
 + (NSArray*)facePointDetectForImage:(UIImage*)image{
     static cv::CascadeClassifier faceDetector;
     static dispatch_once_t onceToken;
@@ -132,31 +176,27 @@ NSString *TRAINING_DATA = @"haarcascade_frontalface_alt";
     cv::Mat src;
     UIImageToMat(image, src);
     vector<vector<cv::Point> > squares;
-    cv::Mat src_gray;
+    cv::Mat src_gray,src_filtered;
     cv::cvtColor(src, src_gray, cv::COLOR_BGR2GRAY);
     // Blur helps to decrease the amount of detected edges
-    cv::Mat src_filtered;
-    //cv::blur(src_gray, src_filtered, cv::Size(3, 3));
+    //cv::blur(src_gray, src_blured, cv::Size(3, 3));
     cv::GaussianBlur(src_gray, src_filtered, cv::Size(3, 3),0,0);
     findSquares(src_filtered, squares);
-
+    
     vector<cv::Point> largest_square;
-    findMaxSquare(squares, largest_square);
-    /*for (size_t i = 0; i < squares.size(); i++) {
+    //findMaxSquare(squares, largest_square);
+    for (size_t i = 0; i < squares.size(); i++) {
         const cv::Point* p = &squares[i][0];
         int n = (int)squares[i].size();
-        cv::polylines(src, &p, &n, 1, true, cv::Scalar(0,0,255,0), 2, CV_AA);
-    }*/
-    // Draw circles at the corners
-    for (size_t i = 0; i < largest_square.size(); i++ ){
-        cv::circle(src, largest_square[i], 3, cv::Scalar(0,0,255,0), cv::FILLED);
-        int n = (int)largest_square.size();
-        //NSLog(@"cardDetectForImage.largest_square: %i",n);
-        //cv::polylines(src, &largest_square[i], &n, 1, true, cv::Scalar(0,0,255,0), 2, CV_AA);
+        cv::polylines(src, &p, &n, 1, true, cv::Scalar(0,255,0,255), 2, CV_AA);
+        //cv::rectangle(src, squares[i][0], squares[i][2], cv::Scalar(0, 255, 0, 255), 2, 8, 0);
     }
-    //cv::imwrite("out_corners.jpg", src);
-    //cv::imshow("Corners", src);
-    //cv::waitKey(0);
+    /*vector<cv::Vec3f> circles;
+    cv::HoughCircles(src_gray, circles, CV_HOUGH_GRADIENT, 2, 50);
+    for(auto &c : circles){
+        cv::Point center(c[0],c[1]);
+        cv::circle(src, center,cvRound(c[2]), cv::Scalar(0, 255, 0, 255), 2, 8, 0);
+    }*/
     return MatToUIImage(src);
 }
 
@@ -202,35 +242,56 @@ void findSquares(cv::Mat& image, vector<vector<cv::Point> >& squares ) {
                 // tgray(x,y) = gray(x,y) < (l+1)*255/N ? 255 : 0
                 gray = gray0 >= (l+1)*255/N;
             }
-            // find contours and store them all as a list
             cv::findContours(gray, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
             //cv::drawContours(image,contours, -1, cv::Scalar(0), 1); //(0): in white
             vector<cv::Point> approx;
-            // test each contour
             for( size_t i = 0; i < contours.size(); i++ ) {
                 // approximate contour with accuracy proportional to the contour perimeter
                 cv::approxPolyDP(cv::Mat(contours[i]), approx, arcLength(cv::Mat(contours[i]), true)*0.02, true);
-                
-                // square contours should have 4 vertices after approximation relatively large area (to filter out noisy contours) and be convex.
-                // Note: absolute value of an area is used because area may be positive or negative - in accordance with the contour orientation
                 double area = fabs(cv::contourArea(cv::Mat(approx)));
+                double fullArea = gray.cols*gray.rows;
                 BOOL isConvex = cv::isContourConvex(cv::Mat(approx));
-                if( approx.size() == 4 && area> 500 && area < 0.9*gray.cols*gray.rows && isConvex ) {
-                    double maxCosine = 0;
-                    for( int j = 2; j < 5; j++ ) {
-                        // find the maximum cosine of the angle between joint edges
-                        double cosine = fabs(angle(approx[j%4], approx[j-2], approx[j-1]));
-                        maxCosine = MAX(maxCosine, cosine);
+                if( approx.size() > 3 && area> 200 && area < 0.9*fullArea && isConvex ) {
+                    //double cos = oldRect(approx);
+                    //if( cos < tolerance ) squares.push_back(approx);
+                    int rectCount =countRect(approx);
+                    if(rectCount>2 && !isOnBoarder(approx,gray)){
+                        squares.push_back(approx);
                     }
-                    // if cosines of all angles are small (all angles are ~90 degree)
-                    // then write quandrange vertices to resultant sequence
-                    if( maxCosine < tolerance ) squares.push_back(approx);
                 }
             }
         }
     }
 }
-
+bool isOnBoarder(vector<cv::Point> pts, cv::Mat img){
+    for(auto &p : pts){
+        if(p.x>img.cols-2 || p.x<2 || p.y>img.rows-2 || p.y<2) return true;
+    }
+    return false;
+}
+double oldRect(vector<cv::Point> pts){
+    double maxCosine = 0;
+    for( int j = 2; j < 5; j++ ) {
+        // find the maximum cosine of the angle between joint edges
+        double cosine = fabs(angle(pts[j%4], pts[j-2], pts[j-1]));
+        maxCosine = MAX(maxCosine, cosine);
+    }
+    // if cosines of all angles are small (all angles are ~90 degree)
+    // then write quandrange vertices to resultant sequence
+    return maxCosine;
+}
+int countRect(vector<cv::Point> pts){
+    int rects = 0;
+    for( int j = 0; j < pts.size()-1; j++ ) {
+        int anglePointIndex = j;
+        int anglePrePointIndex = j-1>-1?j-1:pts.size()-1;
+        int angleNextPointIndex = j+1<pts.size()?j+1:0;
+        double cosine = fabs(angle(pts[angleNextPointIndex], pts[anglePrePointIndex], pts[anglePointIndex]));
+        //maxCosine = MAX(maxCosine, cosine);
+        if( cosine < tolerance && cosine > -tolerance) rects++;
+    }
+    return rects;
+}
 // findLargestSquare: find the largest square within a set of squares
 void findMaxSquare(const vector<vector<cv::Point> >& squares, vector<cv::Point>& biggest_square){
     if (squares.size()<1){

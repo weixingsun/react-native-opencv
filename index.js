@@ -14,4 +14,7 @@ module.exports = {
   cardImage(pathIn,pathOut){
     return RNOpenCV.cardImage(pathIn,pathOut);
   },
+  resizeImage(pathIn,pathOut){
+    return RNOpenCV.resizeImage(pathIn,pathOut);
+  },
 };
